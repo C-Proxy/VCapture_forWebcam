@@ -1,0 +1,16 @@
+{
+    "name": "IK",
+    "rootNamespace": "",
+    "references": [
+        "GUID:4e40a51d02c66f1488b735a8cd6e235a"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
