@@ -1,4 +1,8 @@
 """cd assets/main/scripts/python"""
+"""py trackingsender.py"""
+import json
+from queue import PriorityQueue
+import string
 import cv2
 import mediapipe as mp
 from mediapipe.tasks import python
@@ -9,23 +13,31 @@ import socket
 import time
 from PIL import Image
 
+import Mymodule.my_quaternion as my_quat
+
 model_path = "./tasks/pose_landmarker_lite.task"
 
 SOCKET_SETTING = ("127.0.0.1", 10800)
 fps = 2.0
-connectunity = True
-landmark_line_ids = []
+connect_accept = False
+# landmark_line_ids = []
+
+BaseOptions = mp.tasks.BaseOptions
+PoseLandmarker = mp.tasks.vision.PoseLandmarker
+PoseLMOptions = mp.tasks.vision.PoseLandmarkerOptions
+PoseLMResult = mp.tasks.vision.PoseLandmarkerResult
+VisionRunningMode = mp.tasks.vision.RunningMode
 
 
 def connect():
-    if connectunity == False:
+    if connect_accept == False:
         return
     client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     client.connect(SOCKET_SETTING)
     return client
 
 
-def read_stream(landmarker, cap):
+def read_stream(landmarker: PoseLandmarker, cap):
     if not cap.isOpened():
         return
     success, img = cap.read()
@@ -38,9 +50,9 @@ def read_stream(landmarker, cap):
     landmarker.detect_async(mp_image, int(cap.get(0)))
 
 
-def result_to_coordinates(result: mp.tasks.vision.PoseLandmarkerResult):
-    coordinates = [
-        (landmark.x, landmark.y, landmark.z)
+def trans_landmarks_to_posData(result: PoseLMResult):
+    pos = [
+        np.array([landmark.x, landmark.z, landmark.y])
         for landmark in result.pose_world_landmarks[0]
     ]
     """
@@ -61,56 +73,81 @@ def result_to_coordinates(result: mp.tasks.vision.PoseLandmarkerResult):
     29 - left heel          30 - right heel
     31 - left foot index    32 - right foot index
     """
+    nose = pos[0]
+    mouth_left = pos[9]
+    mouth_right = pos[10]
+    shoulder_left = pos[11]
+    shoulder_right = pos[12]
+    pelvis = np.array([pos[23], pos[24]]).mean(0)
 
-    def get_mid(tuples):
-        sum_x = sum_y = sum_z = 0
-        for tuple in tuples:
-            sum_x += tuple[0]
-            sum_y += tuple[1]
-            sum_z += tuple[2]
-        len = len(tuples)
-        return (sum_x / len, sum_y / len, sum_z / len)
+    return {
+        "head": {
+            "pos": (pos[0]),
+            "quat": my_quat.get_look_quat_f(
+                mouth_right - mouth_left, mouth_right + mouth_left - nose * 2
+            ),
+        },
+        "leftHand": {"pos": pos[15]},
+        "rightHand": {"pos": pos[16]},
+        "leftElbow": {"pos": pos[13]},
+        "rightElbow": {"pos": pos[14]},
+        "root": {
+            "pos": pelvis,
+            "quat": my_quat.get_look_quat_f(
+                shoulder_right - shoulder_left,
+                shoulder_right + shoulder_left - pelvis * 2,
+            ),
+        },
+    }
 
-    data = {}
-    data["head"] = {"point": (coordinates[0])}
 
-    return
+def trans_posData_to_json(data) -> str:
+    for bone in data.values():
+        if "pos" in bone:
+            bone["pos"] = bone["pos"][[0, 2, 1]].tolist()
+        if "quat" in bone:
+            bone["quat"] = bone["quat"].components[[0, 1, 3, 2]].tolist()
+    # return json.dumps({"data": data})
+    return json.dumps(data)
+
+
+def send_result(socket: socket.socket, result: PoseLMResult):
+    data = trans_landmarks_to_posData(result)
+    json = trans_posData_to_json(data)
+    print(json)
+    socket.sendto(json.encode("utf-8"), SOCKET_SETTING)
 
 
 def main():
-    socket = connect()
-    BaseOptions = mp.tasks.BaseOptions
-    PoseLandmarker = mp.tasks.vision.PoseLandmarker
-    PoseOptions = mp.tasks.vision.PoseLandmarkerOptions
-    PoseLandmarkerResult = mp.tasks.vision.PoseLandmarkerResult
-    VisionRunningMode = mp.tasks.vision.RunningMode
+    wait_value = 1 / fps
+    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
+        sock.connect(SOCKET_SETTING)
+        cap = cv2.VideoCapture(0)
 
-    def sendResult(
-        result: PoseLandmarkerResult, output_image: mp.Image, timestamp: int
-    ):
-        result_to_coordinates(result)
-        # socket.sendto(transform_to_json(result), SOCKET_SETTING)
+        def track_callback(
+            result: PoseLMResult, output_image: mp.Image, timestamp: int
+        ):
+            try:
+                send_result(sock, result)
+            except Exception as e:
+                print(e)
 
-    options = PoseOptions(
-        base_options=BaseOptions(model_asset_path=model_path),
-        running_mode=VisionRunningMode.LIVE_STREAM,
-        result_callback=sendResult,
-    )
-
-    cap = cv2.VideoCapture(0)
-
-    with PoseLandmarker.create_from_options(options) as landmarker:
-        try:
-            while True:
-                read_stream(landmarker, cap)
-                if cv2.waitKey(5) & 0xFF == ord("q"):
-                    break
-        finally:
-            cap.release()
-            print("end")
-            cv2.destroyAllWindows()
+        options = PoseLMOptions(
+            base_options=BaseOptions(model_asset_path=model_path),
+            running_mode=VisionRunningMode.LIVE_STREAM,
+            result_callback=track_callback,
+        )
+        with PoseLandmarker.create_from_options(options) as landmarker:
+            try:
+                while True:
+                    read_stream(landmarker, cap)
+                    time.sleep(wait_value)
+            finally:
+                cap.release()
+                print("end")
 
 
+"""
 # 顔のランドマーク
 def face(results, annotated_image, label, csv):
     if results.face_landmarks:
@@ -241,7 +278,7 @@ def landmark(image):
     df = pd.DataFrame([csv], columns=label)
 
     return df, annotated_image
-
+"""
 
 if __name__ == "__main__":
     main()
