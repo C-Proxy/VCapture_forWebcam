@@ -2,6 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using System.Linq;
+using Tracking;
 
 public class PoseRig : MonoBehaviour
 {
@@ -29,7 +30,7 @@ public class PoseRig : MonoBehaviour
     {
         if (!m_IsActive) return;
 
-        m_HumanoidAnchor.Center.localRotation = m_PoseInfo.GetBodyRotation();
+        m_HumanoidAnchor.Root.localRotation = m_PoseInfo.GetBodyRotation();
         m_HumanoidAnchor.LeftHand.SetLocalPositionAndRotation(m_PoseInfo.Hand_L, m_LeftHandInfo.GetHandRotation());
         m_HumanoidAnchor.RightHand.SetLocalPositionAndRotation(m_PoseInfo.Hand_R, m_RightHandInfo.GetHandRotation());
         m_HumanoidAnchor.LeftElbow.localPosition = m_PoseInfo.Elbow_L;

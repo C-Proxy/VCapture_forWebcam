@@ -21,7 +21,7 @@ public class IKControl : MonoBehaviour
     {
         m_Animator = GetComponent<Animator>();
         var targets = m_PoseRig.HumanoidAnchor;
-        m_BodyTarget = targets.Center;
+        m_BodyTarget = targets.Root;
         m_HeadTarget = targets.Head;
         m_LookTarget = targets.LookTarget;
         m_LeftHandTarget = targets.LeftHand;
@@ -83,9 +83,4 @@ public class IKControl : MonoBehaviour
             finger.rotation = centerRot * rot.RotateAxis(m_Axis).RotateAxis(m_Axis2);
         }
     }
-}
-[Serializable]
-public struct HumanoidAnchor
-{
-    public Transform Center, Head, LookTarget, LeftHand, RightHand, LeftElbow, RightElbow;
 }
