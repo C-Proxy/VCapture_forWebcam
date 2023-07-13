@@ -154,10 +154,11 @@ def get_fix_quat_z(
     if dot == 0:
         return q_f
     else:
-        if dot > 0:
-            q_z = create_quat_from_axis_z(np.dot(rotated_axis, sub_vector))
-        else:
-            q_z = create_quat_from_axis_minus_z(np.dot(rotated_axis, sub_vector))
+        q_z = (
+            create_quat_from_axis_z(np.dot(rotated_axis, sub_vector))
+            if dot > 0
+            else create_quat_from_axis_minus_z(np.dot(rotated_axis, sub_vector))
+        )
     return q_f * q_z
 
 

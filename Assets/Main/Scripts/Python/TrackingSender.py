@@ -12,7 +12,7 @@ import numpy as np
 import socket
 import time
 
-import Mymodule.my_poselandmark as my_plm
+import Mymodule.my_posetracking as my_plm
 
 
 SOCKET_SETTING = ("127.0.0.1", 10801)
