@@ -1,3 +1,5 @@
+from contextlib import contextmanager
+from email import contentmanager
 from operator import itemgetter
 import numpy as np
 import mediapipe as mp
@@ -171,7 +173,7 @@ def get_transforms_ik(result: PoseLMResult):
     head = (ear_l + ear_r) / 2
     pelvis = np.array([0.0, 0.0, 0.0])
 
-    return {
+    transforms = {
         "Head": {
             "position": head,
             "rotation": my_quat.get_look_quat_zx(nose - head, ear_r - ear_l),
@@ -197,6 +199,14 @@ def get_transforms_ik(result: PoseLMResult):
             ),
         },
     }
+    for bone in transforms.values():
+        if "position" in bone:
+            pos = bone["position"]
+            bone["position"] = {"x": pos[0], "y": pos[1], "z": pos[2]}
+        if "rotation" in bone:
+            rot = bone["rotation"].components
+            bone["rotation"] = {"w": rot[0], "x": rot[1], "y": rot[2], "z": rot[3]}
+    return transforms
 
 
 def get_positions_pose(result: PoseLMResult):
@@ -205,3 +215,23 @@ def get_positions_pose(result: PoseLMResult):
         for landmark in result_to_landmarks(result, list_landmark_names).values()
     ]
     return {"landmarks": pos}
+
+
+def get_track_result(tag: str, result: PoseLMResult):
+    if tag == "IK":
+        return get_transforms_ik(result)
+    elif tag == "Pose":
+        return get_positions_pose, (result)
+
+
+@contextmanager
+def create_poselandmarker(tag: str, callback_send):
+    def callback(result: PoseLMResult, output_image: mp.Image, timestamp: int):
+        if len(result.pose_landmarks) == 0:
+            print("No Pose detected.")
+            return
+        callback_send(get_track_result(tag, result))
+
+    options = get_options(callback)
+    with PoseLandmarker.create_from_options(options) as plm:
+        yield plm
