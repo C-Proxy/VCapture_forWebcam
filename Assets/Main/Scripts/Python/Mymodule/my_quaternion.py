@@ -110,7 +110,7 @@ def rotated_axis_x(q: np.ndarray) -> np.ndarray:
     q3 = q.z
     return np.array(
         [
-            q0 * q0 + q1 * q1 + q2 * q2 + q3 * q3,
+            q0 * q0 + q1 * q1 - q2 * q2 - q3 * q3,
             (q1 * q2 + q0 * q3) * 2,
             (q1 * q3 - q0 * q2) * 2,
         ]
@@ -146,11 +146,6 @@ def rotated_axis_z(q: np.ndarray) -> np.ndarray:
 
 
 def get_look_quat_zy(forward: np.ndarray, up: np.ndarray) -> quat.quaternion:
-    #     forward = normalize_vector(forward)
-    #     right = normalize_vector(np.cross(forward, up))
-    #     q_f = create_focus_quat_z(forward)
-    #     return get_fix_quat_z(forward, right, rotated_axis_x(q_f), q_f)
-
     forward = normalize(forward)
     right = normalize(np.cross(up, forward))
     q_f = create_focus_quat_z(forward)
