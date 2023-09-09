@@ -16,27 +16,5 @@ namespace Tracking
         public Quaternion Rotation { get; }
         public static Quaternion Lerp;
     }
-    public interface ITrackingSource
-    {
-        public void AssignCallback(UnityAction<TrackingData> callback);
 
-    }
-    [Serializable]
-    public struct HumanoidAnchor
-    {
-        public Transform Head, LookTarget, LeftHand, RightHand, LeftElbow, RightElbow, Root;
-        public void Apply(TrackingData data)
-        {
-            var (head, leftHand, rightHand, root, leftElbow, rightElbow) = data.GetTuple();
-            Head.SetLocalPositionAndRotation(head.Position, head.Rotation);
-            LeftHand.SetLocalPositionAndRotation(leftHand.Position, leftHand.Rotation);
-            RightHand.SetLocalPositionAndRotation(rightHand.Position, rightHand.Rotation);
-            Root.SetLocalPositionAndRotation(root.Position, root.Rotation);
-
-            LeftElbow.localPosition = leftElbow.Position;
-            RightElbow.localPosition = rightElbow.Position;
-
-
-        }
-    }
 }

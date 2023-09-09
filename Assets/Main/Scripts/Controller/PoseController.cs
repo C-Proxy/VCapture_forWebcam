@@ -4,12 +4,5 @@ using UnityEngine;
 using UnityEngine.Events;
 using Tracking;
 
-public class PoseController : MonoBehaviour
-{
-    [SerializeField] TrackingReceiver m_Source;
-    [SerializeField] BasePoseRig m_Target;
-    void Start()
-    {
-        m_Source.AssignCallback(m_Target.ApplyPose);
-    }
-}
+[RequireComponent(typeof(ITrackObserver<PoseData>))]
+public class PoseController : BasePoseController<PoseData> { }
