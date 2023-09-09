@@ -4,17 +4,21 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Events;
 using System.Threading;
+using Cysharp.Threading.Tasks;
+using Cysharp.Threading.Tasks.Linq;
+
 
 namespace Tracking
 {
+    public interface IReceivedData { }
     [Serializable]
-    public struct TrackingData
+    public struct PoseData : IReceivedData
     {
         public TransformData Head, LeftHand, RightHand, Root;
         public PositionData LeftElbow, RightElbow;
 
-        public static TrackingData identiy => new TrackingData(TransformData.identity, TransformData.identity, TransformData.identity, TransformData.identity, PositionData.identity, PositionData.identity);
-        public TrackingData(TransformData head, TransformData leftHand, TransformData rightHand, TransformData root, PositionData leftElbow, PositionData rightElbow)
+        public static PoseData identiy => new PoseData(TransformData.identity, TransformData.identity, TransformData.identity, TransformData.identity, PositionData.identity, PositionData.identity);
+        public PoseData(TransformData head, TransformData leftHand, TransformData rightHand, TransformData root, PositionData leftElbow, PositionData rightElbow)
         {
             Head = head;
             LeftHand = leftHand;
@@ -23,8 +27,8 @@ namespace Tracking
             LeftElbow = leftElbow;
             RightElbow = rightElbow;
         }
-        public static TrackingData Lerp(TrackingData a, TrackingData b, float w)
-        => new TrackingData(
+        public static PoseData Lerp(PoseData a, PoseData b, float w)
+        => new PoseData(
             TransformData.Lerp(a.Head, b.Head, w),
             TransformData.Lerp(a.LeftHand, b.LeftHand, w),
             TransformData.Lerp(a.RightHand, b.RightHand, w),
@@ -32,6 +36,7 @@ namespace Tracking
             PositionData.Lerp(a.LeftElbow, b.LeftElbow, w),
             PositionData.Lerp(a.RightElbow, b.RightElbow, w)
             );
+        // public TrackingData Lerp(TrackingData target, float weight) => TrackingData.Lerp(this, target, weight);
 
         public override string ToString() => $"Head:{Head.ToString()}";
 
@@ -71,14 +76,50 @@ namespace Tracking
             public override string ToString() => $"Pos:{position.ToString()}";
             public static PositionData Lerp(PositionData a, PositionData b, float w) => new PositionData(Vector3.Lerp(a.position, b.position, w));
         }
+        // public struct RotationData : IRotation
+        // {
+        //     [SerializeField]
+        //     Quaternion rotation;
+        //     public Quaternion Rotation => rotation;
+        //     public static RotationData identity => new RotationData(Quaternion.identity);
+        //     public RotationData(Quaternion rot)
+        //     {
+        //         rotation = rot;
+        //     }
+        //     public static RotationData Lerp(RotationData a, RotationData b, float w) => new RotationData(Quaternion.Slerp(a.rotation, b.rotation, w));
+        // }
     }
-    public struct AllTrackingData
+    public struct LandmarkData : IReceivedData
     {
         public Vector3[] landmarks;
     }
-    public interface IPoseControlable
+    public struct HandData : IReceivedData
     {
-        HumanoidAnchor HumanoidAnchor { get; }
-        void ApplyPose(TrackingData data);
+        public bool IsLeft;
+        public Quaternion[][] Rotations;
+        public static HandData Lerp(HandData a, HandData b, float w) { return default; }
     }
+    public interface ITrackObserver<T>
+    where T : IReceivedData
+    {
+        public void CreateSubscription(IUniTaskAsyncEnumerable<T> observable);
+    }
+    public interface IPoseObserver : ITrackObserver<PoseData>
+    {
+        // HumanoidAnchor HumanoidAnchor { get; }
+    }
+    public interface IHandObserver : ITrackObserver<HandData>
+    {
+
+    }
+    public interface IHolisticObserver : IPoseObserver, IHandObserver { }
+    public interface ITrackObservable<T>
+    where T : IReceivedData
+    {
+        void Subscribe(Action<IUniTaskAsyncEnumerable<T>> subscription);
+    }
+
+
+
+    public enum PositionTrackTag { Pose, LeftHand, RightHand }
 }
