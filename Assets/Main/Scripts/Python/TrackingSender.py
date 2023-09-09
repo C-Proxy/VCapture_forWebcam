@@ -3,9 +3,6 @@ cd assets/main/scripts/python
 py trackingsender.py
 """
 import json
-from struct import pack
-import sys
-from Assets.Main.Scripts.Python.Mymodule.my_tracker import Tracker
 import cv2
 import mediapipe as mp
 from mediapipe import solutions
@@ -15,11 +12,12 @@ import socket
 import time
 
 import Mymodule.my_tracker as my_tracker
+from Mymodule.my_track_common import TrackSetting
 
 
 SOCKET_SETTING = ("127.0.0.1", 10801)
-# SEND_MODE = "Pose"
-SEND_MODE = "IK"
+# SEND_MODE = "Position"
+SEND_MODE = "Transform"
 DISPLAY_RESULT = False
 
 fps = 30.0
@@ -40,25 +38,12 @@ def connect():
     return client
 
 
-def get_mp_capture(cap) -> tuple[bool, mp.Image, int]:
-    if not cap.isOpened():
-        return False, None, None
-    success, img = cap.read()
-    if not success:
-        return False, None, None
-    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-    img = cv2.flip(img, 1)
-    mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=img)
-
-    return True, img, cap.get(0)
-
-
 def trans_to_json(content, tag: str) -> str:
-    return json.dumps({"tag": tag, "content": json.dumps(content)})
+    return json.dumps({"tag": tag, "content": json.dumps(content)}).encode("utf-8")
 
 
 def send_result(socket: socket.socket, track_result, tag: str):
-    socket.sendto(trans_to_json(track_result, tag).encode("utf-8"), SOCKET_SETTING)
+    socket.sendto(trans_to_json(track_result, tag), SOCKET_SETTING)
 
 
 def draw_landmarks_on_image(rgb_image, detection_result):
@@ -88,34 +73,34 @@ def draw_landmarks_on_image(rgb_image, detection_result):
     return annotated_image
 
 
+def display_result(image: mp.Image, result: PoseLMResult):
+    if DISPLAY_RESULT:
+        img = draw_landmarks_on_image(image.numpy_view(), result)
+        img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
+        cv2.imshow("Result", img)
+        cv2.waitKey(1)
+
+
 def main():
     wait_value = 1 / fps
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
         sock.connect(SOCKET_SETTING)
         cap = cv2.VideoCapture(0)
+        setting: TrackSetting = TrackSetting(SEND_MODE)
 
-        def callback_pose(track_result):
-            send_result(sock, track_result, SEND_MODE)
-            # if DISPLAY_RESULT:
-            #     img = draw_landmarks_on_image(output_image.numpy_view(), result)
-            #     img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
-            #     cv2.imshow("Result", img)
-            #     cv2.waitKey(1)
-
-        def callback_hand(track_result):
-            print(track_result)
-
-        with (
-            my_tracker.create_landmarker_pose(SEND_MODE, callback_pose) as plm,
-            my_tracker.create_landmarker_hand(callback_hand) as hlm,
-        ):
+        def callback(result, tag: str):
             try:
-                tracker = my_tracker.Tracker(plm, hlm)
+                send_result(sock, result, tag)
+            except Exception as e:
+                print(e)
+
+        with my_tracker.create_tracker(setting, callback) as tracker:
+            try:
                 while True:
-                    success, img, stamp = get_mp_capture(cap)
-                    if success:
-                        tracker.read_stream(img, stamp)
+                    tracker.read_capture(cap)
                     time.sleep(wait_value)
+            except Exception as e:
+                print(e)
             finally:
                 cap.release()
                 print("end")

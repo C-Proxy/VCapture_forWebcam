@@ -1,24 +1,39 @@
-import json
 import numpy as np
 import quaternion as quat
 
 # quat=(w,x,y,z)=(cos(a/2),lam_x*sin(a/2),lam_y*sin(a/2),lam_z*sin(a/2))
 
 
-def normalize_vector(vector: np.ndarray) -> np.ndarray:
-    return vector / np.linalg.norm(vector)
+def normalize(array: np.ndarray, ord=2, axis=-1) -> np.ndarray:
+    length = np.linalg.norm(array, ord=ord, axis=axis, keepdims=True)
+    length[length == 0] = 1
+    return array / length
+
+
+def orthogonalize(a: np.ndarray, forward: np.ndarray, axis=-1):
+    sqr_length = np.sum(forward * forward, axis=axis, keepdims=True)
+    dot_product = dot(a, forward, axis=axis, keepdims=True)
+    return a - forward * dot_product / sqr_length
+
+
+def direction_synchronize(a: np.ndarray, direction: np.ndarray, axis=-1) -> np.ndarray:
+    return np.where(dot(a, direction, axis=axis, keepdims=True) > 0, a, -a)
+
+
+def dot(a: np.ndarray, b: np.ndarray, axis=-1, keepdims=False) -> np.ndarray:
+    return np.sum(a * b, axis=axis, keepdims=keepdims)
 
 
 def get_cross_x(vector: np.ndarray) -> np.ndarray:
-    return np.array([0, -vector[2], vector[1]])
+    return np.array([0, vector[2], -vector[1]])
 
 
 def get_cross_y(vector: np.ndarray) -> np.ndarray:
-    return np.array([vector[2], 0, -vector[0]])
+    return np.array([-vector[2], 0, vector[0]])
 
 
 def get_cross_z(vector: np.ndarray) -> np.ndarray:
-    return np.array([-vector[1], vector[0], 0])
+    return np.array([vector[1], -vector[0], 0])
 
 
 def create_quat_from_axis(
@@ -26,7 +41,7 @@ def create_quat_from_axis(
 ) -> np.quaternion:
     cos_half, sin_half = get_half_trigonometry(cos)
     if not normalized:
-        axis = normalize_vector(axis)
+        axis = normalize(axis)
     return np.quaternion(
         cos_half,
         axis[0] * sin_half,
@@ -63,27 +78,27 @@ def create_quat_from_2vector(
     v_from: np.ndarray, v_to: np.ndarray, normalized: bool = False
 ) -> quat.quaternion:
     if not normalized:
-        v_from = normalize_vector(v_from)
-        v_to = normalize_vector(v_to)
+        v_from = normalize(v_from)
+        v_to = normalize(v_to)
     axis = np.cross(v_from, v_to)
     cos = np.dot(v_from, v_to)
     return create_quat_from_axis(axis, cos)
 
 
 def create_focus_quat_x(v_to: np.ndarray) -> np.ndarray:
-    axis = get_cross_x(v_to)
+    axis = -get_cross_x(v_to)
     cos = v_to[0]
     return create_quat_from_axis(axis, cos)
 
 
 def create_focus_quat_y(v_to: np.ndarray) -> np.ndarray:
-    axis = get_cross_y(v_to)
+    axis = -get_cross_y(v_to)
     cos = v_to[1]
     return create_quat_from_axis(axis, cos)
 
 
 def create_focus_quat_z(v_to: np.ndarray) -> np.ndarray:
-    axis = get_cross_z(v_to)
+    axis = -get_cross_z(v_to)
     cos = v_to[2]
     return create_quat_from_axis(axis, cos)
 
@@ -131,15 +146,20 @@ def rotated_axis_z(q: np.ndarray) -> np.ndarray:
 
 
 def get_look_quat_zy(forward: np.ndarray, up: np.ndarray) -> quat.quaternion:
-    forward = normalize_vector(forward)
-    right = normalize_vector(np.cross(forward, up))
+    #     forward = normalize_vector(forward)
+    #     right = normalize_vector(np.cross(forward, up))
+    #     q_f = create_focus_quat_z(forward)
+    #     return get_fix_quat_z(forward, right, rotated_axis_x(q_f), q_f)
+
+    forward = normalize(forward)
+    right = normalize(np.cross(up, forward))
     q_f = create_focus_quat_z(forward)
     return get_fix_quat_z(forward, right, rotated_axis_x(q_f), q_f)
 
 
 def get_look_quat_zx(forward: np.ndarray, right: np.ndarray) -> quat.quaternion:
-    forward = normalize_vector(forward)
-    up = normalize_vector(np.cross(right, forward))
+    forward = normalize(forward)
+    up = normalize(np.cross(forward, right))
     q_f = create_focus_quat_z(forward)
     return get_fix_quat_z(forward, up, rotated_axis_y(q_f), q_f)
 
@@ -163,9 +183,9 @@ def get_fix_quat_z(
 
 
 def get_look_quat_xy(right: np.ndarray, up: np.ndarray) -> quat.quaternion:
-    # right = normalize_vector(right)
-    # forward = normalize_vector(np.cross(up, right))
-    # q_z = create_focus_quat_z(forward)
-    # q_x = create_quat_from_axis_z(np.dot(rotated_axis_x(q_z), right))
-    # return q_z * q_x
-    return get_look_quat_zx(np.cross(up, right), right)
+    return get_look_quat_zx(np.cross(right, up), right)
+
+
+def quat_to_rotation(q: quat.quaternion):
+    rot = q.components
+    return {"w": rot[0], "x": rot[1], "y": rot[2], "z": rot[3]}
