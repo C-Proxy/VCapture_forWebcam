@@ -4,6 +4,8 @@ using System.Collections.Generic;
 using UnityEngine;
 using System.Linq;
 
+using IK;
+
 [RequireComponent(typeof(Animator))]
 public class IKControl : MonoBehaviour
 {
@@ -12,22 +14,25 @@ public class IKControl : MonoBehaviour
     [SerializeField, Range(0, 1)]
     float m_Ratio;
     Animator m_Animator;
-    [SerializeField] bool m_IsActive = true;
-    [SerializeField] PoseRig m_PoseRig;
+    [SerializeField] bool m_PoseActive = true;
+    [SerializeField] bool m_HandActive = true;
+    [SerializeField] GameObject m_PoseSource;
     Transform m_BodyTarget, m_HeadTarget, m_LeftHandTarget, m_RightHandTarget, m_LeftElbowTarget, m_RightElbowTarget, m_LookTarget;
     Transform m_HeadBone, m_NeckBone, m_LeftHandBone, m_RightHandBone;
     Transform[][] m_LeftFingerBones, m_RightFingerBones;
     private void Awake()
     {
+        var poseIK = m_PoseSource.GetComponent<IPoseRig>();
         m_Animator = GetComponent<Animator>();
-        var targets = m_PoseRig.HumanoidAnchor;
-        m_BodyTarget = targets.Root;
-        m_HeadTarget = targets.Head;
-        m_LookTarget = targets.LookTarget;
-        m_LeftHandTarget = targets.LeftHand;
-        m_RightHandTarget = targets.RightHand;
-        m_LeftElbowTarget = targets.LeftElbow;
-        m_RightElbowTarget = targets.RightElbow;
+
+        var source = poseIK.HumanoidAnchor;
+        m_BodyTarget = source.Root;
+        m_HeadTarget = source.Head;
+        m_LookTarget = source.LookTarget;
+        m_LeftHandTarget = source.LeftHand;
+        m_RightHandTarget = source.RightHand;
+        m_LeftElbowTarget = source.LeftElbow;
+        m_RightElbowTarget = source.RightElbow;
 
 
         m_HeadBone = m_Animator.GetBoneTransform(HumanBodyBones.Head);
@@ -40,7 +45,7 @@ public class IKControl : MonoBehaviour
     }
     private void OnAnimatorIK(int layerIndex)
     {
-        if (!m_IsActive)
+        if (!m_PoseActive)
             return;
 
         transform.SetPositionAndRotation(m_BodyTarget.position, m_BodyTarget.rotation);
@@ -63,19 +68,23 @@ public class IKControl : MonoBehaviour
         m_Animator.SetIKRotation(AvatarIKGoal.RightHand, m_RightHandTarget.rotation);
 
     }
-    private void LateUpdate()
-    {
-        ApplyFingerRotation(m_BodyTarget.rotation, m_LeftFingerBones, m_PoseRig.LeftHandInfo.GetFingerRotations(m_Ratio));
-        ApplyFingerRotation(m_BodyTarget.rotation, m_RightFingerBones, m_PoseRig.RightHandInfo.GetFingerRotations(m_Ratio));
-        Vector3 headAng = m_HeadBone.eulerAngles, neckAng = m_NeckBone.eulerAngles;
-        float ang = Mathf.DeltaAngle(360.0f, m_HeadTarget.eulerAngles.z);
-        headAng.z = ang;
-        neckAng.z = ang * 0.5f;
-        m_HeadBone.eulerAngles = headAng;
-        m_NeckBone.eulerAngles = neckAng;
-
-
-    }
+    // private void LateUpdate()
+    // {
+    //     if (m_HandActive)
+    //     {
+    //         ApplyFingerRotation(m_BodyTarget.rotation, m_LeftFingerBones, m_PoseSource.LeftHandInfo.GetFingerRotations(m_Ratio));
+    //         ApplyFingerRotation(m_BodyTarget.rotation, m_RightFingerBones, m_PoseSource.RightHandInfo.GetFingerRotations(m_Ratio));
+    //     }
+    //     if (m_PoseActive)
+    //     {
+    //         Vector3 headAng = m_HeadBone.eulerAngles, neckAng = m_NeckBone.eulerAngles;
+    //         float ang = Mathf.DeltaAngle(360.0f, m_HeadTarget.eulerAngles.z);
+    //         headAng.z = ang;
+    //         neckAng.z = ang * 0.5f;
+    //         m_HeadBone.eulerAngles = headAng;
+    //         m_NeckBone.eulerAngles = neckAng;
+    //     }
+    // }
     void ApplyFingerRotation(Quaternion centerRot, Transform[][] fingers, Quaternion[][] fingerRots)
     {
         foreach (var (finger, rot) in fingers.SelectMany(_ => _).Zip(fingerRots.SelectMany(_ => _), (f, r) => (f, r)))

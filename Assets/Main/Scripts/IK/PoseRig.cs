@@ -1,32 +1,24 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using System;
 using System.Linq;
 using Tracking;
 
-public class PoseRig : MonoBehaviour
+public class PoseRig : BasePoseRig<PoseData>
 {
     [SerializeField]
     bool m_IsActive = true;
     [SerializeField, Range(0, 1)]
-    float m_Weight = 1f;
-    [SerializeField]
-    HumanoidAnchor m_HumanoidAnchor;
-    public HumanoidAnchor HumanoidAnchor => m_HumanoidAnchor;
-    [SerializeField]
-    Transform m_HeadRig;
     PoseInfo m_PoseInfo = new PoseInfo(new Vector3[13]);
     HandInfo m_LeftHandInfo = new HandInfo(true, new Vector3[21]), m_RightHandInfo = new HandInfo(false, new Vector3[21]);
     public HandInfo LeftHandInfo => m_LeftHandInfo;
     public HandInfo RightHandInfo => m_RightHandInfo;
-    public void SetPose(Vector3[] datas) => m_PoseInfo = PoseInfo.Lerp(m_PoseInfo, new PoseInfo(datas), m_Weight);
     public void SetLeftHand(Vector3[] points) => m_LeftHandInfo = HandInfo.Lerp(m_LeftHandInfo, points, m_Weight);
     public void SetRightHand(Vector3[] points) => m_RightHandInfo = HandInfo.Lerp(m_RightHandInfo, points, m_Weight);
+    public void SetPose(Vector3[] datas) => m_PoseInfo = PoseInfo.Lerp(m_PoseInfo, new PoseInfo(datas), m_Weight);
 
-
-
-
-    private void Update()
+    protected void Update()
     {
         if (!m_IsActive) return;
 
@@ -42,7 +34,7 @@ public class PoseRig : MonoBehaviour
     {
         Vector3 pos_LShoulder = m_PoseInfo.Shoulder_L, pos_RShoulder = m_PoseInfo.Shoulder_R;
         transform.localRotation = Quaternion.Inverse(Quaternion.LookRotation(Vector3.Cross(pos_RShoulder, pos_LShoulder), pos_LShoulder + pos_RShoulder));
-        m_HeadRig.localRotation = Quaternion.Inverse(m_PoseInfo.GetHeadRotation());
+        // m_HeadRig.localRotation = Quaternion.Inverse(m_PoseInfo.GetHeadRotation());
     }
     public struct PoseInfo
     {
@@ -75,6 +67,7 @@ public class PoseRig : MonoBehaviour
             return Quaternion.LookRotation(Vector3.Cross(vecR, vecL), vecL + vecR);
         }
     }
+
     public struct HandInfo
     {
         public bool IsLeft;
